@@ -1,6 +1,6 @@
 /* global TrelloPowerUp */
 
-// Initialize Power-Up Capabilities
+// Initialize Power-Up Capabilities (Single Call)
 TrelloPowerUp.initialize({
   
   // Capability 1: Render completion % badge on card front
@@ -34,7 +34,7 @@ TrelloPowerUp.initialize({
       });
   },
 
-  // Capability 2: Add card button to trigger splitting
+  // Capability 2: Add card button on right sidebar
   'card-buttons': function (t, options) {
     return [{
       icon: 'https://cdn.icon-icons.com/icons2/2248/SHA/512/sitemap_icon_138865.png',
@@ -53,7 +53,6 @@ TrelloPowerUp.initialize({
   'card-detail-badges': function (t, options) {
     return t.card('id', 'closed')
       .then(function (card) {
-        // If child card is archived (closed)
         if (card.closed) {
           return t.get(card.id, 'shared', 'parentDetails')
             .then(function (parentDetails) {
@@ -61,7 +60,6 @@ TrelloPowerUp.initialize({
 
               const { parentId, checkitemId } = parentDetails;
 
-              // Authorize & update parent card checklist item
               return t.getRestApi()
                 .getToken()
                 .then(function (token) {
@@ -79,5 +77,19 @@ TrelloPowerUp.initialize({
         }
         return [];
       });
+  },
+
+  // Capability 4: Embeds a dedicated UI section directly inside the main card body
+  'card-back-section': function (t, options) {
+    return {
+      title: 'Task Hierarchy Manager',
+      icon: 'https://cdn.icon-icons.com/icons2/2248/SHA/512/sitemap_icon_138865.png',
+      content: {
+        type: 'iframe',
+        url: t.signUrl('./split-modal.html'),
+        height: 180
+      }
+    };
   }
+
 });
