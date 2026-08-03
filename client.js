@@ -95,6 +95,6 @@ TrelloPowerUp.initialize({
   }
 
 }, {
-  appKey: '6a6efc59de6eeafa3d5e1b1645bfda85', // <--- REPLACE THIS WITH YOUR API KEY
+  appKey: '6a6efc59de6eeafa3d5e1b1645bfda85',
   appName: 'Task Hierarchy Power-Up'
 });
