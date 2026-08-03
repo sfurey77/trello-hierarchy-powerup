@@ -1,12 +1,13 @@
 /* global TrelloPowerUp */
 
-// 1. Paste your 32-character Trello API Key between quotes below:
-const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85';
-
+// Initialize iframe - appKey and appName MUST be passed inline here!
 const t = TrelloPowerUp.iframe({
-  appKey: API_KEY,
+  appKey: '6a6efc59de6eeafa3d5e1b1645bfda85', // <--- PASTE YOUR API KEY HERE
   appName: 'Task Hierarchy Power-Up'
 });
+
+// Store key for fetch requests
+const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85'; // <--- PASTE YOUR API KEY HERE AGAIN
 
 t.render(function () {
   const listContainer = document.getElementById('item-list');
@@ -15,7 +16,6 @@ t.render(function () {
   return t.card('id', 'name', 'idList')
     .then(function (parentCard) {
       
-      // Helper function to render the authorization button
       function renderAuthButton() {
         listContainer.innerHTML = '<button id="auth-btn" class="item-btn" style="background:#0052cc; color:white; font-weight:bold; padding:10px; width:100%; border:none; border-radius:3px; cursor:pointer;">Click Here to Authorize Power-Up</button>';
         t.sizeTo('#content');
@@ -30,19 +30,13 @@ t.render(function () {
               })
               .catch(function(authErr) {
                 console.error("Authorization failed:", authErr);
-                alert("Authorization failed or was closed. Please try again.");
+                alert("Authorization failed or popup was closed. Please try again.");
               });
           };
         }
       }
 
-      // Check if REST API capability is ready and authorized
       const restApi = t.getRestApi();
-      
-      if (!restApi) {
-        listContainer.innerHTML = '<p style="color:red;">REST API not available. Check client.js initialization.</p>';
-        return t.sizeTo('#content');
-      }
 
       return restApi.isAuthorized()
         .then(function (isAuth) {
@@ -51,7 +45,6 @@ t.render(function () {
             return;
           }
 
-          // User IS authorized -> fetch token & list checklists
           return restApi.getToken().then(function (token) {
             if (!token) {
               renderAuthButton();
@@ -145,6 +138,6 @@ function createChildCard(itemData, parentCard, token) {
   })
   .catch(function (err) {
     console.error("Error creating child card:", err);
-    alert("Failed to create child card. Please check network connection.");
+    alert("Failed to create child card.");
   });
 }
