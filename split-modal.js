@@ -75,12 +75,24 @@ function loadChecklists(parentCard, listContainer) {
           return t.sizeTo('#content');
         }
 
+        let totalTasks = 0;
+        let completedTasks = 0;
         let hasIncomplete = false;
+
+        // Header element to show progress percentage directly inside the widget
+        const progressHeader = document.createElement('div');
+        progressHeader.style.marginBottom = '10px';
+        progressHeader.style.fontWeight = 'bold';
 
         checklists.forEach(function (checklist) {
           const checkItems = checklist.checkItems || [];
           checkItems.forEach(function (item) {
-            if (item.state === 'incomplete') {
+            totalTasks++;
+            
+            // Check for completed or linked child card completion
+            if (item.state === 'complete') {
+              completedTasks++;
+            } else {
               hasIncomplete = true;
 
               const btn = document.createElement('button');
@@ -99,8 +111,15 @@ function loadChecklists(parentCard, listContainer) {
           });
         });
 
+        // Calculate completion rate
+        const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        progressHeader.innerHTML = `<span style="color: ${percentage === 100 ? '#006644' : '#0052cc'}">📊 Overall Progress: ${percentage}% (${completedTasks}/${totalTasks} completed)</span>`;
+        listContainer.insertBefore(progressHeader, listContainer.firstChild);
+
         if (!hasIncomplete) {
-          listContainer.innerHTML = '<p><em>All checklist tasks are completed!</em></p>';
+          const doneMsg = document.createElement('p');
+          doneMsg.innerHTML = '<em>All checklist tasks are completed! 🎉</em>';
+          listContainer.appendChild(doneMsg);
         }
 
         return t.sizeTo('#content');
@@ -109,7 +128,6 @@ function loadChecklists(parentCard, listContainer) {
 }
 
 function createChildCard(itemData, parentCard, token, buttonElement) {
-  // Step 1: Create Child Card via Trello REST API
   fetch(`https://api.trello.com/1/cards?key=${API_KEY}&token=${token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -128,7 +146,6 @@ function createChildCard(itemData, parentCard, token, buttonElement) {
     return res.json();
   })
   .then(function (childCard) {
-    // Step 2: Update Checklist Item Name on Parent Card via REST API
     return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -138,7 +155,6 @@ function createChildCard(itemData, parentCard, token, buttonElement) {
     });
   })
   .then(function () {
-    // Step 3: Update UI button inline without forcing a page reload
     if (buttonElement) {
       buttonElement.textContent = '✅ Child Card Created!';
       buttonElement.style.backgroundColor = '#e3fcef';
