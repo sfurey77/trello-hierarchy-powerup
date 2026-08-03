@@ -5,14 +5,35 @@
   <link rel="stylesheet" href="https://p.trellocdn.com/power-up.css">
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
   <style>
-    body { padding: 12px; }
-    select, button { width: 100%; margin-top: 8px; }
+    body { 
+      padding: 12px; 
+      margin: 0; 
+      overflow-y: auto;
+    }
+    #content {
+      padding-bottom: 10px;
+    }
+    .item-btn {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      background-color: #091e420f; /* Trello light gray */
+      border: none;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    .item-btn:hover {
+      background-color: #091e4224; /* Darker gray on hover */
+    }
   </style>
 </head>
 <body>
-  <label for="item-select">Select Checklist Item to Split:</label>
-  <select id="item-select"></select>
-  <button id="split-btn" class="mod-primary">Create Child Card</button>
+  <div id="content">
+    <p><strong>Select an item to split into a child card:</strong></p>
+    <div id="item-list">Loading checklists...</div>
+  </div>
 
   <script src="./split-modal.js"></script>
 </body>
