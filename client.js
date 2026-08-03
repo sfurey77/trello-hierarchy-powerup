@@ -9,22 +9,20 @@ TrelloPowerUp.initialize({
   'card-badges': function (t, options) {
     return t.card('checklists')
       .then(function (card) {
-        if (!card.checklists || card.checklists.length === 0) {
-          return [];
-        }
+        const checklists = card.checklists || [];
+        if (checklists.length === 0) return [];
 
         let totalItems = 0;
         let completeItems = 0;
 
-        card.checklists.forEach(function (checklist) {
-          if (checklist.checkItems) {
-            checklist.checkItems.forEach(function (item) {
-              totalItems++;
-              if (item.state === 'complete') {
-                completeItems++;
-              }
-            });
-          }
+        checklists.forEach(function (checklist) {
+          const items = checklist.checkItems || [];
+          items.forEach(function (item) {
+            totalItems++;
+            if (item.state === 'complete') {
+              completeItems++;
+            }
+          });
         });
 
         if (totalItems === 0) return [];
@@ -33,7 +31,7 @@ TrelloPowerUp.initialize({
 
         return [{
           text: `Sub-tasks: ${percentage}%`,
-          color: percentage === 100 ? 'green' : (percentage > 0 ? 'blue' : 'gray')
+          color: percentage === 100 ? 'green' : (percentage > 0 ? 'blue' : null)
         }];
       });
   },
@@ -55,11 +53,10 @@ TrelloPowerUp.initialize({
 
   // Capability 3: Detect when Child Card is Completed/Archived -> Auto-Complete Parent Checklist Item
   'card-detail-badges': function (t, options) {
-    return t.card('id', 'closed', 'desc')
+    return t.card('id', 'closed', 'desc', 'shortLink')
       .then(function (card) {
-        // Only run sync logic if the child card is archived (closed)
+        // Sync if the card is closed (archived) and has a description referencing the parent card
         if (card.closed && card.desc) {
-          // Extract Parent Card ID from description link (https://trello.com/c/{parentId})
           const match = card.desc.match(/trello\.com\/c\/([a-zA-Z0-9]+)/);
           if (!match) return [];
 
@@ -73,16 +70,16 @@ TrelloPowerUp.initialize({
               return t.getRestApi().getToken().then(function (token) {
                 if (!token) return [];
 
-                // Fetch parent card checklists to match child card short link or name
+                // Fetch parent card checklists to find matching link
                 return fetch(`https://api.trello.com/1/cards/${parentCardId}/checklists?key=${API_KEY}&token=${token}`)
                   .then(res => res.json())
                   .then(function (checklists) {
-                    if (!checklists) return [];
+                    if (!Array.isArray(checklists)) return [];
 
                     checklists.forEach(function (checklist) {
                       (checklist.checkItems || []).forEach(function (item) {
-                        // If item links to this child card short ID/URL, mark it complete
-                        if (item.name.includes(card.id) || item.name.includes(card.id.slice(-6))) {
+                        // Check if parent item includes link/shortLink to child card
+                        if (item.name.includes(card.shortLink) || item.name.includes(card.id)) {
                           fetch(`https://api.trello.com/1/cards/${parentCardId}/checkItem/${item.id}?key=${API_KEY}&token=${token}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
