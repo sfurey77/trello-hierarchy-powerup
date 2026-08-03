@@ -126,24 +126,17 @@ function createChildCard(itemData, parentCard, token) {
     return res.json();
   })
   .then(function (childCard) {
-    // Step 2: Save Parent-Child Link in PluginData on the Child Card
-    return t.set(childCard.id, 'shared', 'parentDetails', {
-      parentId: parentCard.id,
-      checkitemId: itemData.id
-    })
-    .then(function () {
-      // Step 3: Update Checklist Item Name on Parent Card to include link
-      return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `${itemData.name} 🔗 [Child Card](${childCard.shortUrl})`
-        })
-      });
+    // Step 2: Update Parent Checklist Item Name to include link to Child Card via REST API directly
+    return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${itemData.name} 🔗 [Child Card](${childCard.shortUrl})`
+      })
     });
   })
   .then(function () {
-    // Reload iframe to update checklist view
+    // Refresh iframe so the new child link shows immediately
     location.reload();
   })
   .catch(function (err) {
