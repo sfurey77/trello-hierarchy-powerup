@@ -1,13 +1,12 @@
 /* global TrelloPowerUp */
 
-// Initialize iframe - appKey and appName MUST be passed inline here!
+// Initialize iframe with API credentials
+const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85'; // <--- PASTE YOUR API KEY HERE
+
 const t = TrelloPowerUp.iframe({
-  appKey: '6a6efc59de6eeafa3d5e1b1645bfda85', // <--- PASTE YOUR API KEY HERE
+  appKey: API_KEY,
   appName: 'Task Hierarchy Power-Up'
 });
-
-// Store key for fetch requests
-const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85'; // <--- PASTE YOUR API KEY HERE AGAIN
 
 t.render(function () {
   const listContainer = document.getElementById('item-list');
@@ -17,7 +16,7 @@ t.render(function () {
     .then(function (parentCard) {
       
       function renderAuthButton() {
-        listContainer.innerHTML = '<button id="auth-btn" class="item-btn" style="background:#0052cc; color:white; font-weight:bold; padding:10px; width:100%; border:none; border-radius:3px; cursor:pointer;">Click Here to Authorize Power-Up</button>';
+        listContainer.innerHTML = '<button id="auth-btn" class="item-btn" style="background:#0052cc; color:white; font-weight:bold; padding:10px; width:100%; border:none; border-radius:3px; cursor:pointer;">Authorize Write Permissions</button>';
         t.sizeTo('#content');
 
         const authBtn = document.getElementById('auth-btn');
@@ -30,7 +29,7 @@ t.render(function () {
               })
               .catch(function(authErr) {
                 console.error("Authorization failed:", authErr);
-                alert("Authorization failed or popup was closed. Please try again.");
+                alert("Authorization failed or popup was closed.");
               });
           };
         }
@@ -108,6 +107,7 @@ t.render(function () {
 });
 
 function createChildCard(itemData, parentCard, token) {
+  // Step 1: Create Child Card via Trello REST API
   fetch(`https://api.trello.com/1/cards?key=${API_KEY}&token=${token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -117,13 +117,22 @@ function createChildCard(itemData, parentCard, token) {
       desc: `**Parent Project:** [${parentCard.name}](https://trello.com/c/${parentCard.id})`
     })
   })
-  .then(res => res.json())
+  .then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (text) {
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      });
+    }
+    return res.json();
+  })
   .then(function (childCard) {
+    // Step 2: Save Parent-Child Link in PluginData on the Child Card
     return t.set(childCard.id, 'shared', 'parentDetails', {
       parentId: parentCard.id,
       checkitemId: itemData.id
     })
     .then(function () {
+      // Step 3: Update Checklist Item Name on Parent Card to include link
       return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -134,10 +143,11 @@ function createChildCard(itemData, parentCard, token) {
     });
   })
   .then(function () {
+    // Reload iframe to update checklist view
     location.reload();
   })
   .catch(function (err) {
     console.error("Error creating child card:", err);
-    alert("Failed to create child card.");
+    alert(`Failed to create child card: ${err.message}`);
   });
 }
