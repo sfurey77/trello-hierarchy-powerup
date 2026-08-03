@@ -1,6 +1,6 @@
 /* global TrelloPowerUp */
 
-// Initialize Power-Up Capabilities (Single Call)
+// Initialize Power-Up Capabilities with API Key
 TrelloPowerUp.initialize({
   
   // Capability 1: Render completion % badge on card front
@@ -15,12 +15,14 @@ TrelloPowerUp.initialize({
         let completeItems = 0;
 
         card.checklists.forEach(function (checklist) {
-          checklist.checkItems.forEach(function (item) {
-            totalItems++;
-            if (item.state === 'complete') {
-              completeItems++;
-            }
-          });
+          if (checklist.checkItems) {
+            checklist.checkItems.forEach(function (item) {
+              totalItems++;
+              if (item.state === 'complete') {
+                completeItems++;
+              }
+            });
+          }
         });
 
         if (totalItems === 0) return [];
@@ -79,7 +81,7 @@ TrelloPowerUp.initialize({
       });
   },
 
-  // Capability 4: Embeds a dedicated UI section directly inside the main card body
+  // Capability 4: Embeds dedicated UI section inside the main card body
   'card-back-section': function (t, options) {
     return {
       title: 'Task Hierarchy Manager',
@@ -92,4 +94,7 @@ TrelloPowerUp.initialize({
     };
   }
 
+}, {
+  appKey: '6a6efc59de6eeafa3d5e1b1645bfda85', // <--- REPLACE THIS WITH YOUR API KEY
+  appName: 'Task Hierarchy Power-Up'
 });
