@@ -1,124 +1,40 @@
-/* global TrelloPowerUp */
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://p.trellocdn.com/power-up.css">
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <style>
+    body { 
+      padding: 12px; 
+      margin: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Noto, sans-serif;
+    }
+    #content {
+      width: 100%;
+    }
+    .item-btn {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      background-color: #091e420f;
+      border: none;
+      border-radius: 3px;
+      font-weight: 500;
+      color: #172b4d;
+    }
+    .item-btn:hover {
+      background-color: #091e4224;
+    }
+  </style>
+</head>
+<body>
+  <div id="content">
+    <div id="item-list">Loading checklist tasks...</div>
+  </div>
 
-// 1. Paste your 32-character API Key inside quotes below:
-const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85';
-
-// 2. Initialize iframe with API credentials
-const t = TrelloPowerUp.iframe({
-  appKey: API_KEY,
-  appName: 'Task Hierarchy Power-Up'
-});
-
-t.render(function () {
-  const listContainer = document.getElementById('item-list');
-
-  return t.card('id', 'name', 'idList')
-    .then(function (parentCard) {
-      // Check API Authorization Status
-      return t.getRestApi()
-        .isAuthorized()
-        .then(function (isAuthorized) {
-          if (!isAuthorized) {
-            listContainer.innerHTML = '<button id="auth-btn" class="item-btn" style="background:#0052cc; color:white; font-weight:bold; padding:10px;">Click Here to Authorize Power-Up</button>';
-            t.sizeTo('#content');
-            
-            document.getElementById('auth-btn').onclick = function() {
-              t.getRestApi().authorize().then(function() {
-                location.reload();
-              }).catch(function(err) {
-                console.error("Auth error:", err);
-              });
-            };
-            return;
-          }
-
-          // User is Authorized -> Fetch Token & Get Checklists
-          return t.getRestApi().getToken().then(function (token) {
-            if (!token) {
-              listContainer.innerHTML = '<p style="color:red;">Authorization token missing. Click authorize again.</p>';
-              return t.sizeTo('#content');
-            }
-
-            return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checklists?key=${API_KEY}&token=${token}`)
-              .then(res => res.json())
-              .then(function (checklists) {
-                listContainer.innerHTML = ''; // Clear loading text
-
-                if (!checklists || checklists.length === 0) {
-                  listContainer.innerHTML = '<p><em>No checklists found on this card. Add a checklist to get started!</em></p>';
-                  return t.sizeTo('#content');
-                }
-
-                let hasIncomplete = false;
-
-                checklists.forEach(function (checklist) {
-                  const checkItems = checklist.checkItems || [];
-                  checkItems.forEach(function (item) {
-                    if (item.state === 'incomplete') {
-                      hasIncomplete = true;
-
-                      const btn = document.createElement('button');
-                      btn.className = 'item-btn';
-                      btn.textContent = `Split: ${item.name}`;
-
-                      btn.onclick = function () {
-                        btn.disabled = true;
-                        btn.textContent = 'Creating Child Card...';
-                        createChildCard(item, parentCard, token);
-                      };
-
-                      listContainer.appendChild(btn);
-                    }
-                  });
-                });
-
-                if (!hasIncomplete) {
-                  listContainer.innerHTML = '<p><em>All checklist tasks are completed!</em></p>';
-                }
-
-                return t.sizeTo('#content');
-              });
-          });
-        });
-    })
-    .catch(function (err) {
-      console.error("SDK Error:", err);
-      listContainer.innerHTML = '<p style="color: red;">Error reading checklists. Please check browser console or re-authorize.</p>';
-      t.sizeTo('#content');
-    });
-});
-
-function createChildCard(itemData, parentCard, token) {
-  fetch(`https://api.trello.com/1/cards?key=${API_KEY}&token=${token}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: itemData.name,
-      idList: parentCard.idList,
-      desc: `**Parent Project:** [${parentCard.name}](https://trello.com/c/${parentCard.id})`
-    })
-  })
-  .then(res => res.json())
-  .then(function (childCard) {
-    return t.set(childCard.id, 'shared', 'parentDetails', {
-      parentId: parentCard.id,
-      checkitemId: itemData.id
-    })
-    .then(function () {
-      return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `${itemData.name} 🔗 [Child Card](${childCard.shortUrl})`
-        })
-      });
-    });
-  })
-  .then(function () {
-    location.reload();
-  })
-  .catch(function (err) {
-    console.error("Error creating child card:", err);
-    alert("Failed to create child card.");
-  });
-}
+  <script src="./split-modal.js"></script>
+</body>
+</html>
