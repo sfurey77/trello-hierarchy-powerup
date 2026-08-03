@@ -1,44 +1,38 @@
 /* global TrelloPowerUp */
 
-// Initialize Power-Up Capabilities
 const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85'; // <--- PASTE YOUR API KEY HERE
 
 TrelloPowerUp.initialize({
   
-  // Capability 1: Progress Badge on Front of Card
+  // Render Front-of-Card Badge directly from Card Object
   'card-badges': function (t, options) {
     return t.card('checklists')
       .then(function (card) {
-        console.log("Card Badges Execution:", card); // Console debug log
-
         const checklists = card.checklists || [];
         if (checklists.length === 0) return [];
 
-        let totalItems = 0;
-        let completeItems = 0;
+        let total = 0;
+        let complete = 0;
 
-        checklists.forEach(function (checklist) {
-          const items = checklist.checkItems || [];
-          items.forEach(function (item) {
-            totalItems++;
-            if (item.state === 'complete') {
-              completeItems++;
-            }
+        checklists.forEach(function (cl) {
+          (cl.checkItems || []).forEach(function (item) {
+            total++;
+            if (item.state === 'complete') complete++;
           });
         });
 
-        if (totalItems === 0) return [];
+        if (total === 0) return [];
 
-        const percentage = Math.round((completeItems / totalItems) * 100);
+        const pct = Math.round((complete / total) * 100);
 
         return [{
-          text: `Sub-tasks: ${percentage}%`,
-          color: percentage === 100 ? 'green' : (percentage > 0 ? 'blue' : 'gray')
+          text: `Sub-tasks: ${pct}%`,
+          color: pct === 100 ? 'green' : (pct > 0 ? 'blue' : 'gray')
         }];
       });
   },
 
-  // Capability 2: Card Button (Right Sidebar)
+  // Card Sidebar Button
   'card-buttons': function (t, options) {
     return [{
       icon: 'https://cdn.icon-icons.com/icons2/2248/SHA/512/sitemap_icon_138865.png',
@@ -53,53 +47,7 @@ TrelloPowerUp.initialize({
     }];
   },
 
-  // Capability 3: Auto-Update Checklist on Child Archival
-  'card-detail-badges': function (t, options) {
-    return t.card('id', 'closed', 'desc')
-      .then(function (card) {
-        if (card.closed && card.desc) {
-          // Look for parent card link format in description
-          const match = card.desc.match(/trello\.com\/c\/([a-zA-Z0-9]+)/);
-          if (!match) return [];
-
-          const parentCardId = match[1];
-
-          return t.getRestApi()
-            .isAuthorized()
-            .then(function (isAuthorized) {
-              if (!isAuthorized) return [];
-
-              return t.getRestApi().getToken().then(function (token) {
-                if (!token) return [];
-
-                return fetch(`https://api.trello.com/1/cards/${parentCardId}/checklists?key=${API_KEY}&token=${token}`)
-                  .then(res => res.json())
-                  .then(function (checklists) {
-                    if (!Array.isArray(checklists)) return [];
-
-                    checklists.forEach(function (checklist) {
-                      (checklist.checkItems || []).forEach(function (item) {
-                        // Match child card shortUrl or ID inside checklist item link text
-                        if (item.name.includes(card.id) || item.name.includes('Child Card')) {
-                          fetch(`https://api.trello.com/1/cards/${parentCardId}/checkItem/${item.id}?key=${API_KEY}&token=${token}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ state: 'complete' })
-                          });
-                        }
-                      });
-                    });
-
-                    return [];
-                  });
-              });
-            });
-        }
-        return [];
-      });
-  },
-
-  // Capability 4: Card Back Section Widget
+  // Main Widget Panel
   'card-back-section': function (t, options) {
     return {
       title: 'Task Hierarchy Manager',
