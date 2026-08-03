@@ -2,28 +2,30 @@
 const t = TrelloPowerUp.iframe();
 
 t.render(function () {
-  // Fetch card basic info AND detailed checklists explicitly
-  return Promise.all([
-    t.card('id', 'name', 'idList'),
-    t.checklists('all') // Explicitly request all checklist items
-  ])
-  .then(function ([parentCard, checklists]) {
-    const listContainer = document.getElementById('item-list');
-    listContainer.innerHTML = ''; // Clear loading text
+  // Pass 'checklists' directly inside t.card()
+  return t.card('id', 'name', 'idList', 'checklists')
+    .then(function (parentCard) {
+      console.log("Card Data Fetched:", parentCard); // Debug log
+      
+      const listContainer = document.getElementById('item-list');
+      listContainer.innerHTML = ''; // Clear loading text
 
-    if (!checklists || checklists.length === 0) {
-      listContainer.innerHTML = '<p><em>No checklists found on this card. Add a checklist to get started!</em></p>';
-      return t.sizeTo('#content');
-    }
+      const checklists = parentCard.checklists || [];
 
-    let hasIncomplete = false;
+      if (checklists.length === 0) {
+        listContainer.innerHTML = '<p><em>No checklists found on this card. Add a checklist to get started!</em></p>';
+        return t.sizeTo('#content');
+      }
 
-    // Iterate through all fetched checklists
-    checklists.forEach(function (checklist) {
-      if (checklist.checkItems && checklist.checkItems.length > 0) {
-        checklist.checkItems.forEach(function (item) {
-          // Check for incomplete state (handles both 'incomplete' string and false boolean)
-          if (item.state === 'incomplete' || item.state === false) {
+      let hasIncomplete = false;
+
+      // Iterate through card checklists
+      checklists.forEach(function (checklist) {
+        const checkItems = checklist.checkItems || [];
+        
+        checkItems.forEach(function (item) {
+          // Check if item is incomplete
+          if (item.state === 'incomplete') {
             hasIncomplete = true;
             
             const btn = document.createElement('button');
@@ -39,24 +41,23 @@ t.render(function () {
             listContainer.appendChild(btn);
           }
         });
+      });
+
+      if (!hasIncomplete) {
+        listContainer.innerHTML = '<p><em>All checklist tasks are completed!</em></p>';
       }
+
+      // Automatically adjust iframe height
+      return t.sizeTo('#content');
+    })
+    .catch(function (err) {
+      console.error("Trello rendering error:", err);
+      const listContainer = document.getElementById('item-list');
+      if (listContainer) {
+        listContainer.innerHTML = '<p style="color: red;">Unable to load card data. Please try refreshing.</p>';
+      }
+      t.sizeTo('#content');
     });
-
-    if (!hasIncomplete) {
-      listContainer.innerHTML = '<p><em>All checklist tasks are completed!</em></p>';
-    }
-
-    // Automatically adjust iframe height to fit buttons
-    return t.sizeTo('#content');
-  })
-  .catch(function (err) {
-    console.error("Trello rendering error:", err);
-    const listContainer = document.getElementById('item-list');
-    if (listContainer) {
-      listContainer.innerHTML = '<p style="color: red;">Unable to load card data. Try refreshing the page.</p>';
-    }
-    t.sizeTo('#content');
-  });
 });
 
 function createChildCard(itemData, parentCard) {
@@ -104,7 +105,6 @@ function createChildCard(itemData, parentCard) {
       });
     })
     .then(function () {
-      // Refresh or close popup if applicable
       try { t.closePopup(); } catch(e) {}
     })
     .catch(function (err) {
