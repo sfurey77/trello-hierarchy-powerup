@@ -4,35 +4,48 @@ const t = TrelloPowerUp.iframe();
 t.render(function () {
   t.card('id', 'name', 'idList', 'checklists')
     .then(function (parentCard) {
-      const select = document.getElementById('item-select');
-      select.innerHTML = '';
+      const listContainer = document.getElementById('item-list');
+      listContainer.innerHTML = ''; // Clear loading text
 
       if (!parentCard.checklists || parentCard.checklists.length === 0) {
-        select.innerHTML = '<option value="">No checklists found</option>';
-        return;
+        listContainer.innerHTML = '<p><em>No checklists found on this card.</em></p>';
+        return t.sizeTo('#content');
       }
 
-      // Populate dropdown with incomplete checklist items
+      let hasIncomplete = false;
+
+      // Create a button for every incomplete checklist item
       parentCard.checklists.forEach(function (checklist) {
         checklist.checkItems.forEach(function (item) {
           if (item.state === 'incomplete') {
-            const opt = document.createElement('option');
-            opt.value = JSON.stringify({ id: item.id, name: item.name });
-            opt.textContent = `${checklist.name}: ${item.name}`;
-            select.appendChild(opt);
+            hasIncomplete = true;
+            
+            const btn = document.createElement('button');
+            btn.className = 'item-btn';
+            btn.textContent = `Split: ${item.name}`;
+            
+            // When clicked, trigger the split logic
+            btn.addEventListener('click', function () {
+              btn.disabled = true;
+              btn.textContent = 'Creating Child Card...';
+              createChildCard(item, parentCard);
+            });
+
+            listContainer.appendChild(btn);
           }
         });
       });
+
+      if (!hasIncomplete) {
+        listContainer.innerHTML = '<p><em>All tasks are completed!</em></p>';
+      }
+
+      // Tell Trello to automatically stretch the iframe to fit these buttons
+      t.sizeTo('#content');
     });
 });
 
-document.getElementById('split-btn').addEventListener('click', function () {
-  const selectedValue = document.getElementById('item-select').value;
-  if (!selectedValue) return;
-
-  const itemData = JSON.parse(selectedValue);
-
-  // Authenticate user with Trello REST API
+function createChildCard(itemData, parentCard) {
   t.getRestApi()
     .isAuthorized()
     .then(function (isAuthorized) {
@@ -43,12 +56,11 @@ document.getElementById('split-btn').addEventListener('click', function () {
     .then(function () {
       return Promise.all([
         t.getRestApi().getAppKey(),
-        t.getRestApi().getToken(),
-        t.card('id', 'name', 'idList')
+        t.getRestApi().getToken()
       ]);
     })
-    .then(function ([apiKey, token, parentCard]) {
-      // 1. Create Child Card via Trello API
+    .then(function ([apiKey, token]) {
+      // 1. Create Child Card via API
       return fetch(`https://api.trello.com/1/cards?key=${apiKey}&token=${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,13 +72,13 @@ document.getElementById('split-btn').addEventListener('click', function () {
       })
       .then(res => res.json())
       .then(function (childCard) {
-        // 2. Save Parent-Child Link in PluginData on the Child Card
+        // 2. Save Link in PluginData
         return t.set(childCard.id, 'shared', 'parentDetails', {
           parentId: parentCard.id,
           checkitemId: itemData.id
         })
         .then(function () {
-          // 3. Update Parent Checklist Item to include Link
+          // 3. Update Parent Checklist Item
           return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${apiKey}&token=${token}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -78,9 +90,10 @@ document.getElementById('split-btn').addEventListener('click', function () {
       });
     })
     .then(function () {
-      t.closePopup();
+      // Close the popup window if it was opened from the sidebar button
+      try { t.closePopup(); } catch(e) {}
     })
     .catch(function (err) {
       console.error("Error creating child card:", err);
     });
-});
+}
