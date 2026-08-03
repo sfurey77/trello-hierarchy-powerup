@@ -25,7 +25,7 @@ t.render(function () {
             t.getRestApi()
               .authorize({ scope: 'read,write', expiration: 'never' })
               .then(function() {
-                location.reload();
+                loadChecklists(parentCard, listContainer);
               })
               .catch(function(authErr) {
                 console.error("Authorization failed:", authErr);
@@ -44,55 +44,7 @@ t.render(function () {
             return;
           }
 
-          return restApi.getToken().then(function (token) {
-            if (!token) {
-              renderAuthButton();
-              return;
-            }
-
-            return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checklists?key=${API_KEY}&token=${token}`)
-              .then(function (res) {
-                if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
-                return res.json();
-              })
-              .then(function (checklists) {
-                listContainer.innerHTML = '';
-
-                if (!checklists || checklists.length === 0) {
-                  listContainer.innerHTML = '<p><em>No checklists found on this card. Add a checklist to get started!</em></p>';
-                  return t.sizeTo('#content');
-                }
-
-                let hasIncomplete = false;
-
-                checklists.forEach(function (checklist) {
-                  const checkItems = checklist.checkItems || [];
-                  checkItems.forEach(function (item) {
-                    if (item.state === 'incomplete') {
-                      hasIncomplete = true;
-
-                      const btn = document.createElement('button');
-                      btn.className = 'item-btn';
-                      btn.textContent = `Split: ${item.name}`;
-
-                      btn.onclick = function () {
-                        btn.disabled = true;
-                        btn.textContent = 'Creating Child Card...';
-                        createChildCard(item, parentCard, token);
-                      };
-
-                      listContainer.appendChild(btn);
-                    }
-                  });
-                });
-
-                if (!hasIncomplete) {
-                  listContainer.innerHTML = '<p><em>All checklist tasks are completed!</em></p>';
-                }
-
-                return t.sizeTo('#content');
-              });
-          });
+          loadChecklists(parentCard, listContainer);
         })
         .catch(function (err) {
           console.error("Auth status error:", err);
@@ -106,7 +58,57 @@ t.render(function () {
     });
 });
 
-function createChildCard(itemData, parentCard, token) {
+function loadChecklists(parentCard, listContainer) {
+  t.getRestApi().getToken().then(function (token) {
+    if (!token) return;
+
+    fetch(`https://api.trello.com/1/cards/${parentCard.id}/checklists?key=${API_KEY}&token=${token}`)
+      .then(function (res) {
+        if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(function (checklists) {
+        listContainer.innerHTML = '';
+
+        if (!checklists || checklists.length === 0) {
+          listContainer.innerHTML = '<p><em>No checklists found on this card. Add a checklist to get started!</em></p>';
+          return t.sizeTo('#content');
+        }
+
+        let hasIncomplete = false;
+
+        checklists.forEach(function (checklist) {
+          const checkItems = checklist.checkItems || [];
+          checkItems.forEach(function (item) {
+            if (item.state === 'incomplete') {
+              hasIncomplete = true;
+
+              const btn = document.createElement('button');
+              btn.className = 'item-btn';
+              btn.id = `btn-${item.id}`;
+              btn.textContent = `Split: ${item.name}`;
+
+              btn.onclick = function () {
+                btn.disabled = true;
+                btn.textContent = 'Creating Child Card...';
+                createChildCard(item, parentCard, token, btn);
+              };
+
+              listContainer.appendChild(btn);
+            }
+          });
+        });
+
+        if (!hasIncomplete) {
+          listContainer.innerHTML = '<p><em>All checklist tasks are completed!</em></p>';
+        }
+
+        return t.sizeTo('#content');
+      });
+  });
+}
+
+function createChildCard(itemData, parentCard, token, buttonElement) {
   // Step 1: Create Child Card via Trello REST API
   fetch(`https://api.trello.com/1/cards?key=${API_KEY}&token=${token}`, {
     method: 'POST',
@@ -126,7 +128,7 @@ function createChildCard(itemData, parentCard, token) {
     return res.json();
   })
   .then(function (childCard) {
-    // Step 2: Update Parent Checklist Item Name to include link to Child Card via REST API directly
+    // Step 2: Update Checklist Item Name on Parent Card via REST API
     return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -136,11 +138,19 @@ function createChildCard(itemData, parentCard, token) {
     });
   })
   .then(function () {
-    // Refresh iframe so the new child link shows immediately
-    location.reload();
+    // Step 3: Update UI button inline without forcing a page reload
+    if (buttonElement) {
+      buttonElement.textContent = '✅ Child Card Created!';
+      buttonElement.style.backgroundColor = '#e3fcef';
+      buttonElement.style.color = '#006644';
+    }
   })
   .catch(function (err) {
     console.error("Error creating child card:", err);
     alert(`Failed to create child card: ${err.message}`);
+    if (buttonElement) {
+      buttonElement.disabled = false;
+      buttonElement.textContent = `Split: ${itemData.name}`;
+    }
   });
 }
