@@ -1,6 +1,5 @@
 /* global TrelloPowerUp */
 
-// Initialize iframe with API credentials
 const API_KEY = '6a6efc59de6eeafa3d5e1b1645bfda85'; // <--- PASTE YOUR API KEY HERE
 
 const t = TrelloPowerUp.iframe({
@@ -14,111 +13,120 @@ t.render(function () {
 
   return t.card('id', 'name', 'idList')
     .then(function (parentCard) {
-      
-      function renderAuthButton() {
-        listContainer.innerHTML = '<button id="auth-btn" class="item-btn" style="background:#0052cc; color:white; font-weight:bold; padding:10px; width:100%; border:none; border-radius:3px; cursor:pointer;">Authorize Write Permissions</button>';
-        t.sizeTo('#content');
-
-        const authBtn = document.getElementById('auth-btn');
-        if (authBtn) {
-          authBtn.onclick = function() {
-            t.getRestApi()
-              .authorize({ scope: 'read,write', expiration: 'never' })
-              .then(function() {
-                loadChecklists(parentCard, listContainer);
-              })
-              .catch(function(authErr) {
-                console.error("Authorization failed:", authErr);
-                alert("Authorization failed or popup was closed.");
-              });
-          };
-        }
-      }
-
       const restApi = t.getRestApi();
 
       return restApi.isAuthorized()
         .then(function (isAuth) {
           if (!isAuth) {
-            renderAuthButton();
+            renderAuthButton(listContainer);
             return;
           }
 
-          loadChecklists(parentCard, listContainer);
+          loadChecklists(parentCard, listContainer, restApi);
         })
         .catch(function (err) {
           console.error("Auth status error:", err);
-          renderAuthButton();
+          renderAuthButton(listContainer);
         });
-    })
-    .catch(function (err) {
-      console.error("Card data error:", err);
-      listContainer.innerHTML = '<p style="color: red;">Error loading card details. Try reloading the browser page.</p>';
-      t.sizeTo('#content');
     });
 });
 
-function loadChecklists(parentCard, listContainer) {
-  t.getRestApi().getToken().then(function (token) {
+function renderAuthButton(listContainer) {
+  listContainer.innerHTML = '<button id="auth-btn" style="background:#0052cc; color:white; font-weight:600; padding:8px 12px; width:100%; border:none; border-radius:3px; cursor:pointer;">Authorize Write Permissions</button>';
+  t.sizeTo('#content');
+
+  const authBtn = document.getElementById('auth-btn');
+  if (authBtn) {
+    authBtn.onclick = function() {
+      t.getRestApi()
+        .authorize({ scope: 'read,write', expiration: 'never' })
+        .then(function() {
+          location.reload();
+        });
+    };
+  }
+}
+
+function loadChecklists(parentCard, listContainer, restApi) {
+  restApi.getToken().then(function (token) {
     if (!token) return;
 
     fetch(`https://api.trello.com/1/cards/${parentCard.id}/checklists?key=${API_KEY}&token=${token}`)
-      .then(function (res) {
-        if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
-        return res.json();
-      })
+      .then(res => res.json())
       .then(function (checklists) {
         listContainer.innerHTML = '';
 
         if (!checklists || checklists.length === 0) {
-          listContainer.innerHTML = '<p><em>No checklists found on this card. Add a checklist to get started!</em></p>';
+          listContainer.innerHTML = '<p style="font-size:13px; color:#6b778c; margin:0;"><em>No checklists found on this card. Add a checklist to get started.</em></p>';
           return t.sizeTo('#content');
         }
 
         let totalTasks = 0;
         let completedTasks = 0;
-        let hasIncomplete = false;
-
-        // Header element to show progress percentage directly inside the widget
-        const progressHeader = document.createElement('div');
-        progressHeader.style.marginBottom = '10px';
-        progressHeader.style.fontWeight = 'bold';
+        const incompleteItems = [];
 
         checklists.forEach(function (checklist) {
-          const checkItems = checklist.checkItems || [];
-          checkItems.forEach(function (item) {
+          (checklist.checkItems || []).forEach(function (item) {
             totalTasks++;
-            
-            // Check for completed or linked child card completion
             if (item.state === 'complete') {
               completedTasks++;
             } else {
-              hasIncomplete = true;
-
-              const btn = document.createElement('button');
-              btn.className = 'item-btn';
-              btn.id = `btn-${item.id}`;
-              btn.textContent = `Split: ${item.name}`;
-
-              btn.onclick = function () {
-                btn.disabled = true;
-                btn.textContent = 'Creating Child Card...';
-                createChildCard(item, parentCard, token, btn);
-              };
-
-              listContainer.appendChild(btn);
+              incompleteItems.push(item);
             }
           });
         });
 
-        // Calculate completion rate
         const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-        progressHeader.innerHTML = `<span style="color: ${percentage === 100 ? '#006644' : '#0052cc'}">📊 Overall Progress: ${percentage}% (${completedTasks}/${totalTasks} completed)</span>`;
-        listContainer.insertBefore(progressHeader, listContainer.firstChild);
+        const barColor = percentage === 100 ? '#00875a' : '#0052cc';
 
-        if (!hasIncomplete) {
+        // Render Clean Progress Bar
+        const progressHTML = `
+          <div class="progress-container">
+            <div class="progress-header">
+              <span>Sub-task Completion</span>
+              <span>${percentage}% (${completedTasks}/${totalTasks})</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
+            </div>
+          </div>
+        `;
+
+        listContainer.innerHTML = progressHTML;
+
+        // Render Rows
+        if (incompleteItems.length > 0) {
+          const rowsContainer = document.createElement('div');
+          rowsContainer.className = 'item-list';
+
+          incompleteItems.forEach(function (item) {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'item-name';
+            nameSpan.textContent = item.name;
+
+            const btn = document.createElement('button');
+            btn.className = 'btn-split';
+            btn.textContent = 'Split to Card';
+
+            btn.onclick = function () {
+              btn.disabled = true;
+              btn.textContent = 'Creating...';
+              createChildCard(item, parentCard, token, btn);
+            };
+
+            row.appendChild(nameSpan);
+            row.appendChild(btn);
+            rowsContainer.appendChild(row);
+          });
+
+          listContainer.appendChild(rowsContainer);
+        } else if (totalTasks > 0) {
           const doneMsg = document.createElement('p');
-          doneMsg.innerHTML = '<em>All checklist tasks are completed! 🎉</em>';
+          doneMsg.style.cssText = 'font-size:13px; color:#00875a; font-weight:600; margin:8px 0 0 0;';
+          doneMsg.innerHTML = '🎉 All sub-tasks completed!';
           listContainer.appendChild(doneMsg);
         }
 
@@ -137,14 +145,7 @@ function createChildCard(itemData, parentCard, token, buttonElement) {
       desc: `**Parent Project:** [${parentCard.name}](https://trello.com/c/${parentCard.id})`
     })
   })
-  .then(function (res) {
-    if (!res.ok) {
-      return res.text().then(function (text) {
-        throw new Error(`HTTP ${res.status}: ${text}`);
-      });
-    }
-    return res.json();
-  })
+  .then(res => res.json())
   .then(function (childCard) {
     return fetch(`https://api.trello.com/1/cards/${parentCard.id}/checkItem/${itemData.id}?key=${API_KEY}&token=${token}`, {
       method: 'PUT',
@@ -156,17 +157,11 @@ function createChildCard(itemData, parentCard, token, buttonElement) {
   })
   .then(function () {
     if (buttonElement) {
-      buttonElement.textContent = '✅ Child Card Created!';
-      buttonElement.style.backgroundColor = '#e3fcef';
-      buttonElement.style.color = '#006644';
+      buttonElement.textContent = '✅ Created';
+      buttonElement.classList.add('btn-success');
     }
   })
   .catch(function (err) {
-    console.error("Error creating child card:", err);
     alert(`Failed to create child card: ${err.message}`);
-    if (buttonElement) {
-      buttonElement.disabled = false;
-      buttonElement.textContent = `Split: ${itemData.name}`;
-    }
   });
 }
