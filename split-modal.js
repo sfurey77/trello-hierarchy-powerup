@@ -32,7 +32,7 @@ t.render(function () {
 });
 
 function renderAuthButton(listContainer) {
-  listContainer.innerHTML = '<button id="auth-btn" style="background:#0052cc; color:white; font-weight:600; padding:8px 12px; width:100%; border:none; border-radius:3px; cursor:pointer;">Authorize Write Permissions</button>';
+  listContainer.innerHTML = '<button id="auth-btn" style="background:#579dff; color:#1d2125; font-weight:600; padding:6px 10px; width:100%; border:none; border-radius:3px; cursor:pointer; font-size:12px;">Authorize Write Permissions</button>';
   t.sizeTo('#content');
 
   const authBtn = document.getElementById('auth-btn');
@@ -57,7 +57,7 @@ function loadChecklists(parentCard, listContainer, restApi) {
         listContainer.innerHTML = '';
 
         if (!checklists || checklists.length === 0) {
-          listContainer.innerHTML = '<p style="font-size:13px; color:#6b778c; margin:0;"><em>No checklists found on this card. Add a checklist to get started.</em></p>';
+          listContainer.innerHTML = '<p style="font-size:12px; color:var(--ds-text-subtle, #9fadbc); margin:0;"><em>No checklists found on this card.</em></p>';
           return t.sizeTo('#content');
         }
 
@@ -77,14 +77,14 @@ function loadChecklists(parentCard, listContainer, restApi) {
         });
 
         const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-        const barColor = percentage === 100 ? '#00875a' : '#0052cc';
+        const barColor = percentage === 100 ? '#1f845a' : '#579dff';
 
-        // Render Clean Progress Bar
+        // Render Clean Compact Progress Bar
         const progressHTML = `
           <div class="progress-container">
             <div class="progress-header">
               <span>Sub-task Completion</span>
-              <span>${percentage}% (${completedTasks}/${totalTasks})</span>
+              <span style="color: ${barColor}">${percentage}% (${completedTasks}/${totalTasks})</span>
             </div>
             <div class="progress-bar-bg">
               <div class="progress-bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
@@ -94,7 +94,7 @@ function loadChecklists(parentCard, listContainer, restApi) {
 
         listContainer.innerHTML = progressHTML;
 
-        // Render Rows
+        // Render Compact Rows
         if (incompleteItems.length > 0) {
           const rowsContainer = document.createElement('div');
           rowsContainer.className = 'item-list';
@@ -109,7 +109,7 @@ function loadChecklists(parentCard, listContainer, restApi) {
 
             const btn = document.createElement('button');
             btn.className = 'btn-split';
-            btn.textContent = 'Split to Card';
+            btn.textContent = 'Split';
 
             btn.onclick = function () {
               btn.disabled = true;
@@ -125,11 +125,12 @@ function loadChecklists(parentCard, listContainer, restApi) {
           listContainer.appendChild(rowsContainer);
         } else if (totalTasks > 0) {
           const doneMsg = document.createElement('p');
-          doneMsg.style.cssText = 'font-size:13px; color:#00875a; font-weight:600; margin:8px 0 0 0;';
+          doneMsg.style.cssText = 'font-size:12px; color:#4bce97; font-weight:600; margin:4px 0 0 0;';
           doneMsg.innerHTML = '🎉 All sub-tasks completed!';
           listContainer.appendChild(doneMsg);
         }
 
+        // Adjust widget height to fit tightly without scrollbars
         return t.sizeTo('#content');
       });
   });
